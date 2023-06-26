@@ -11,6 +11,12 @@ client = WebClient(token=api_key)
 
 app = Flask(__name__)
 
+def extract_message_text(response):
+    messages_text = []
+    for item in response['messages']:
+        messages_text.append(item['text'])
+    return messages_text
+
 @app.route('/')
 def hello_world():
     return 'It Works'
@@ -23,8 +29,11 @@ def summarize():
 
     #get channel history
     response = client.conversations_history(channel=channel_id, limit=100)
-    print(response)
 
+    #parese message data, create an array of messages sent in chronological order
+    #initial basic implementation to test summary
+    messages = extract_message_text(response)
+    print(messages)
 
 
 @app.route('/success')
