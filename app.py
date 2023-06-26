@@ -7,7 +7,7 @@ import openai
 
 #environ variables
 api_key = os.getenv("api_key")
-openai_key = os.getenv("openai_key")
+openai.api_key = os.getenv("openai_key")
 
 #set up slack client sdk
 client = WebClient(token=api_key)
