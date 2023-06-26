@@ -2,11 +2,17 @@ from flask import Flask, request, jsonify
 from slack import WebClient
 import requests
 import os
+import openai
+
 
 #environ variables
 api_key = os.getenv("api_key")
+openai_key = os.getenv("openai_key")
 
+#set up slack client sdk
 client = WebClient(token=api_key)
+
+
 
 
 app = Flask(__name__)
@@ -30,10 +36,30 @@ def summarize():
     #get channel history
     response = client.conversations_history(channel=channel_id, limit=100)
 
-    #parese message data, create an array of messages sent in chronological order
+    #parse message data, create an array of messages sent in reverse chronological order
     #initial basic implementation to test summary
     messages = extract_message_text(response)
-    print(messages)
+    
+    #send messages as a string to openai api for summary
+    prompt_text = ", ".join(messages)
+    prompt_action = "\n\nThe text is a comma seperated list of messages in a slack channel in reverse chronological order. Give a Tl;dr"
+    prompt = prompt_text + prompt_action
+    summary = openai.Completion.create(
+        model = "text-davinci-003", 
+        prompt = prompt_text + prompt_action,
+        temperature=1,
+        max_tokens=60,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=1
+    )
+
+    print(summary)
+
+    resp = jsonify(success=True)
+
+    return resp
+    
 
 
 @app.route('/success')
