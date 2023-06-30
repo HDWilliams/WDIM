@@ -3,6 +3,7 @@ from slack import WebClient
 import requests
 import os
 import openai
+import threading
 
 
 #environ variables
@@ -13,7 +14,27 @@ openai.api_key = os.getenv("openai_key")
 client = WebClient(token=api_key)
 
 
+def send_slack_message(text, channel_id):
+    try: 
+        client.chat_postMessage(channel=channel_id, text=text)
+    except Exception as e:
+        print(f"Error: {e}")
 
+def get_gpt_summary(messages, channel_id):
+    #send messages as a string to openai api for summary
+    prompt_text = ", ".join(messages)
+    prompt_action = "\n\nThe text is a comma seperated list of messages in a slack channel in reverse chronological order. Give a Tl;dr"
+    prompt = prompt_text + prompt_action
+    summary = openai.Completion.create(
+        model = "text-davinci-003", 
+        prompt = prompt_text + prompt_action,
+        temperature=1,
+        max_tokens=60,
+        top_p=1.0,
+        frequency_penalty=0.0,
+        presence_penalty=1
+    )
+    send_slack_message(summary, channel_id)
 
 app = Flask(__name__)
 
@@ -39,23 +60,9 @@ def summarize():
     #parse message data, create an array of messages sent in reverse chronological order
     #initial basic implementation to test summary
     messages = extract_message_text(response)
-    
-    #send messages as a string to openai api for summary
-    prompt_text = ", ".join(messages)
-    prompt_action = "\n\nThe text is a comma seperated list of messages in a slack channel in reverse chronological order. Give a Tl;dr"
-    prompt = prompt_text + prompt_action
-    summary = openai.Completion.create(
-        model = "text-davinci-003", 
-        prompt = prompt_text + prompt_action,
-        temperature=1,
-        max_tokens=60,
-        top_p=1.0,
-        frequency_penalty=0.0,
-        presence_penalty=1
-    )
 
-    print(summary)
-
+    my_thread = threading.Thread(target=get_gpt_summary(messages, channel_id))
+    my_thread.start()
     resp = jsonify(success=True)
 
     return resp
