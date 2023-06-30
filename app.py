@@ -20,7 +20,7 @@ def send_slack_message(text, channel_id):
     except Exception as e:
         print(f"Error: {e}")
 
-def get_gpt_summary(messages, channel_id):
+def get_gpt_summary(messages):
     #send messages as a string to openai api for summary
     prompt_text = ", ".join(messages)
     prompt_action = "\n\nThe text is a comma seperated list of messages in a slack channel in reverse chronological order. Give a Tl;dr"
@@ -34,7 +34,7 @@ def get_gpt_summary(messages, channel_id):
         frequency_penalty=0.0,
         presence_penalty=1
     )
-    send_slack_message(summary, channel_id)
+    return summary
 
 app = Flask(__name__)
 
@@ -44,6 +44,17 @@ def extract_message_text(response):
         messages_text.append(item['text'])
     return messages_text
 
+def get_channel_history(channel_id):
+    response = client.conversations_history(channel=channel_id, limit=100)
+    return response
+
+def get_summary_and_send(channel_id):
+    history = get_channel_history(channel_id)
+    messages = extract_message_text(history)
+    summary = get_gpt_summary(messages)
+    send_slack_message(summary['choices'][0]['text'], channel_id)
+
+
 @app.route('/')
 def hello_world():
     return 'It Works'
@@ -52,17 +63,15 @@ def hello_world():
 def summarize():
     response_url = request.form['response_url']
     channel_id = request.form['channel_id']
-    requests.post(response_url, json={'text': 'Processing...'})
+    #requests.post(response_url, json={'text': 'Processing...'})
 
-    #get channel history
-    response = client.conversations_history(channel=channel_id, limit=100)
+    
 
     #parse message data, create an array of messages sent in reverse chronological order
     #initial basic implementation to test summary
-    messages = extract_message_text(response)
 
-    my_thread = threading.Thread(target=get_gpt_summary(messages, channel_id))
-    my_thread.start()
+    summary_thread = threading.Thread(target=get_summary_and_send(channel_id))
+    summary_thread.start()
     resp = jsonify(success=True)
 
     return resp
